@@ -4,19 +4,23 @@
 importScripts('config.js');
 
 const KEYS = {
-  CAPTURES:  'gi_captures',
-  PRICES:    'gi_prices',
-  SELLERS:   'gi_sellers',
-  ALERTS:    'gi_alerts',
-  HITS:      'gi_hits',
-  SHOWS:     'gi_shows',
-  LAST_SEEN: 'gi_last_seen',   // listing key → last seen date (for sold inference)
-  LISTINGS:  'gi_listings',    // lightweight listing cache (key → first_listed, price, title)
-  SOLD_INF:  'gi_sold_inf',    // inferred sold listings
+  CAPTURES:   'gi_captures',
+  PRICES:     'gi_prices',
+  SELLERS:    'gi_sellers',
+  ALERTS:     'gi_alerts',
+  HITS:       'gi_hits',
+  SHOWS:      'gi_shows',
+  LAST_SEEN:  'gi_last_seen',   // listing key → last seen date (for sold inference)
+  LISTINGS:   'gi_listings',    // lightweight listing cache (key → first_listed, price, title)
+  SOLD_INF:   'gi_sold_inf',    // inferred sold listings
+  SYNC_STATS: 'gi_sync_stats',  // ingest health: { lastSuccessAt, lastErrorAt, lastErrorStatus, lastErrorDetail, successes24h[] }
 };
 
 // ── API sender ────────────────────────────────────────────────────────────────
 async function sendToAPI(type, key, data, captured_at) {
+  let ok = false;
+  let status = 0;
+  let errBody = '';
   try {
     const res = await fetch(CONFIG.INGEST_URL, {
       method: 'POST',
@@ -25,8 +29,39 @@ async function sendToAPI(type, key, data, captured_at) {
         events: [{ type, payload: { key, data, captured_at } }]
       })
     });
-    return res.ok;
-  } catch { return false; }
+    status = res.status;
+    ok = res.ok;
+    if (!ok) {
+      try { errBody = (await res.text()).slice(0, 200); } catch {}
+    }
+  } catch (e) {
+    errBody = (e && e.message) ? String(e.message).slice(0, 200) : 'network error';
+  }
+  // Record the outcome. Never let a logging failure poison the caller.
+  recordSyncResult(ok, status, errBody).catch(() => {});
+  return ok;
+}
+
+// Keep a rolling record of POST outcomes so the popup can show "Sync: Live · 12s ago".
+// Successes are stored as a capped array of epoch-ms timestamps so we can count "/ 24h"
+// without unbounded growth. The most recent failure (if more recent than the most
+// recent success) is surfaced verbatim so silent 4xx errors become visible.
+async function recordSyncResult(ok, status, errBody) {
+  const s = await chrome.storage.local.get(KEYS.SYNC_STATS);
+  const stats = s[KEYS.SYNC_STATS] || { successes24h: [] };
+  const now = Date.now();
+  const nowIso = new Date(now).toISOString();
+  const cutoff = now - 24 * 60 * 60 * 1000;
+  stats.successes24h = (stats.successes24h || []).filter(t => t >= cutoff);
+  if (ok) {
+    stats.successes24h.push(now);
+    stats.lastSuccessAt = nowIso;
+  } else {
+    stats.lastErrorAt = nowIso;
+    stats.lastErrorStatus = status;
+    stats.lastErrorDetail = errBody || '';
+  }
+  await chrome.storage.local.set({ [KEYS.SYNC_STATS]: stats });
 }
 
 // ── Show keywords ─────────────────────────────────────────────────────────────
@@ -412,6 +447,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg.type === 'CLEAR_HITS') {
     chrome.storage.local.set({ [KEYS.HITS]: [] }).then(() => sendResponse({ ok: true }));
+    return true;
+  }
+
+  if (msg.type === 'GET_SYNC_STATS') {
+    chrome.storage.local.get(KEYS.SYNC_STATS).then(s => {
+      const stats = s[KEYS.SYNC_STATS] || { successes24h: [] };
+      sendResponse({
+        lastSuccessAt:   stats.lastSuccessAt   || null,
+        lastErrorAt:     stats.lastErrorAt     || null,
+        lastErrorStatus: stats.lastErrorStatus || null,
+        lastErrorDetail: stats.lastErrorDetail || null,
+        count24h:        (stats.successes24h || []).length,
+      });
+    });
     return true;
   }
 });
