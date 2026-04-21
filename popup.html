@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{width:340px;background:#0a0a0a;color:#e0dbd0;font-family:'DM Sans',sans-serif;font-size:13px;overflow:hidden;}
+.header{padding:12px 16px;border-bottom:1px solid #181818;display:flex;align-items:center;gap:10px;}
+.logo{width:26px;height:26px;border-radius:5px;overflow:hidden;flex-shrink:0;}
+.logo img{width:100%;height:100%;object-fit:cover;}
+.header-text h1{font-size:13px;font-weight:600;color:#f0ebe0;letter-spacing:0.02em;}
+.header-text p{font-size:10px;color:#333;margin-top:1px;}
+.version{margin-left:auto;font-family:'DM Mono',monospace;font-size:10px;color:#2a2a2a;background:#111;padding:2px 6px;border-radius:4px;}
+.tabs{display:flex;border-bottom:1px solid #181818;overflow-x:auto;}
+.tab{flex-shrink:0;padding:8px 10px;text-align:center;font-size:11px;color:#444;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;white-space:nowrap;}
+.tab:hover{color:#777;}
+.tab.active{color:#4ade80;border-bottom-color:#4ade80;}
+.panel{display:none;padding:12px 16px;}
+.panel.active{display:block;}
+
+.stat-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:10px;}
+.stat{background:#111;border:1px solid #1a1a1a;border-radius:7px;padding:8px 10px;text-align:center;}
+.stat-val{font-family:'DM Mono',monospace;font-size:17px;color:#4ade80;font-weight:500;line-height:1;}
+.stat-lbl{font-size:9px;color:#3a3a3a;margin-top:3px;text-transform:uppercase;letter-spacing:0.07em;}
+
+.status-row{display:flex;align-items:center;gap:7px;padding:8px 10px;background:#0f0f0f;border:1px solid #181818;border-radius:7px;margin-bottom:10px;}
+.dot{width:6px;height:6px;border-radius:50%;background:#4ade80;box-shadow:0 0 5px #4ade80;animation:pulse 2s infinite;flex-shrink:0;}
+.dot.off{background:#222;box-shadow:none;animation:none;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.status-txt{font-size:11.5px;color:#555;}
+.status-txt strong{color:#888;}
+
+.section-title{font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#2a2a2a;margin-bottom:6px;}
+.tip-box{background:#0f1a0f;border:1px solid #1a2e1a;border-radius:7px;padding:8px 10px;font-size:11px;color:#2a4a2a;line-height:1.5;}
+.tip-box strong{color:#3a6a3a;}
+
+.list{max-height:150px;overflow-y:auto;margin-bottom:8px;}
+.list-item{background:#111;border:1px solid #1a1a1a;border-radius:6px;padding:7px 9px;margin-bottom:4px;}
+.list-item.green{background:#0f1a0f;border-color:#1a2e1a;}
+.list-item.red{background:#1a0f0f;border-color:#2e1a1a;}
+.list-item.amber{background:#1a150f;border-color:#2e251a;}
+.item-title{font-size:11.5px;color:#ccc;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.item-title.green{color:#86efac;}
+.item-title.red{color:#fca5a5;}
+.item-title.amber{color:#fcd34d;}
+.item-meta{font-size:10px;color:#3a3a3a;margin-top:2px;}
+.item-meta.green{color:#2a4a2a;}
+.item-meta.red{color:#4a2a2a;}
+.item-meta.amber{color:#4a3a1a;}
+.empty{color:#2a2a2a;font-size:11px;text-align:center;padding:16px 0;}
+
+.alert-item{display:flex;align-items:center;gap:8px;}
+.alert-del{background:none;border:none;color:#333;cursor:pointer;font-size:14px;padding:0 2px;flex-shrink:0;}
+.alert-del:hover{color:#884444;}
+
+.add-alert{background:#0f0f0f;border:1px solid #1e1e1e;border-radius:7px;padding:10px;margin-top:8px;}
+.add-alert input,.add-alert select{width:100%;background:#0a0a0a;border:1px solid #1e1e1e;color:#ccc;padding:5px 8px;border-radius:5px;font-family:'DM Sans',sans-serif;font-size:11px;margin-bottom:5px;}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+
+.setting-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #111;}
+.setting-label{font-size:12px;color:#888;}
+.setting-sub{font-size:10px;color:#333;margin-top:1px;}
+.setting-val{font-family:'DM Mono',monospace;font-size:11px;color:#4ade80;background:#0f1a0f;padding:3px 7px;border-radius:4px;border:1px solid #1a2e1a;}
+
+button{font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;cursor:pointer;transition:all 0.15s;border:none;border-radius:5px;}
+.btn-green{background:#166534;color:#86efac;padding:7px 12px;}
+.btn-green:hover{background:#14532d;}
+.btn-dim{background:#111;color:#555;border:1px solid #1e1e1e;padding:7px 12px;}
+.btn-dim:hover{background:#161616;color:#777;}
+.btn-danger{background:transparent;color:#3a2020;border:1px solid #2a1010;padding:5px 10px;font-size:10px;}
+.btn-danger:hover{color:#884444;background:#110808;}
+.btn-row{display:flex;gap:5px;margin-top:8px;}
+.btn-row button{flex:1;}
+
+.toast{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);background:#22c55e;color:white;padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;opacity:0;transition:opacity 0.2s;white-space:nowrap;z-index:99;}
+.toast.show{opacity:1;}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo"><img src="icon48.png"></div>
+  <div class="header-text"><h1>Geck Inspect</h1><p>Market intelligence</p></div>
+  <div class="version">v4.1</div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="overview">Overview</div>
+  <div class="tab" data-tab="alerts">Alerts</div>
+  <div class="tab" data-tab="drops">Drops</div>
+  <div class="tab" data-tab="sold">Sold</div>
+  <div class="tab" data-tab="settings">Settings</div>
+</div>
+
+<!-- OVERVIEW -->
+<div class="panel active" id="tab-overview">
+  <div class="status-row">
+    <div class="dot off" id="status-dot"></div>
+    <div class="status-txt" id="status-txt">Not on MorphMarket</div>
+  </div>
+  <div class="stat-grid">
+    <div class="stat"><div class="stat-val" id="s-images">—</div><div class="stat-lbl">Images</div></div>
+    <div class="stat"><div class="stat-val" id="s-tracked">—</div><div class="stat-lbl">Tracked</div></div>
+    <div class="stat"><div class="stat-val" id="s-sellers">—</div><div class="stat-lbl">Sellers</div></div>
+    <div class="stat"><div class="stat-val" id="s-drops" style="color:#fca5a5">—</div><div class="stat-lbl">Drops</div></div>
+    <div class="stat"><div class="stat-val" id="s-matches" style="color:#86efac">—</div><div class="stat-lbl">Matches</div></div>
+    <div class="stat"><div class="stat-val" id="s-sold" style="color:#fbbf24">—</div><div class="stat-lbl">~Sold</div></div>
+  </div>
+  <div class="tip-box">
+    <strong>Age badges</strong> now appear on listing cards — green (&lt;7d), yellow (7-21d), amber (21-60d), red (60d+).<br><br>
+    <strong>Sold tip:</strong> Browse ?state=sold to capture real transaction history.
+  </div>
+</div>
+
+<!-- ALERTS -->
+<div class="panel" id="tab-alerts">
+  <div class="section-title">Active alerts</div>
+  <div class="list" id="alert-list"><div class="empty">No alerts yet</div></div>
+  <div class="add-alert">
+    <div class="section-title" style="margin-bottom:7px">New alert</div>
+    <input type="text" id="alert-name" placeholder="Name (e.g. Lilly White female under $400)">
+    <input type="text" id="alert-keyword" placeholder="Keyword in title or traits">
+    <div class="row">
+      <input type="number" id="alert-min" placeholder="Min price $">
+      <input type="number" id="alert-max" placeholder="Max price $">
+    </div>
+    <div class="row">
+      <select id="alert-sex"><option value="any">Any sex</option><option value="female">Female</option><option value="male">Male</option><option value="unknown">Unsexed</option></select>
+      <select id="alert-maturity"><option value="any">Any maturity</option><option value="baby">Baby</option><option value="juvenile">Juvenile</option><option value="subadult">Subadult</option><option value="adult">Adult</option></select>
+    </div>
+    <div class="btn-row"><button class="btn-green" id="add-alert-btn">+ Add Alert</button></div>
+  </div>
+  <div style="margin-top:10px">
+    <div class="section-title">Recent matches</div>
+    <div class="list" id="hits-list"><div class="empty">No matches yet</div></div>
+  </div>
+</div>
+
+<!-- PRICE DROPS -->
+<div class="panel" id="tab-drops">
+  <div class="section-title">Recent price drops</div>
+  <div class="list" id="drops-list"><div class="empty">No drops captured yet</div></div>
+  <div class="btn-row">
+    <button class="btn-danger" id="clear-drops-btn">Clear history</button>
+  </div>
+</div>
+
+<!-- INFERRED SOLD -->
+<div class="panel" id="tab-sold">
+  <div class="section-title">Inferred sold listings</div>
+  <div style="font-size:10px;color:#333;margin-bottom:8px;">Listings not seen in 14+ days — likely sold. Days listed = estimated time to sell.</div>
+  <div class="list" id="sold-list"><div class="empty">Keep browsing — sold listings infer over time</div></div>
+</div>
+
+<!-- SETTINGS -->
+<div class="panel" id="tab-settings">
+  <div class="setting-row">
+    <div><div class="setting-label">API</div><div class="setting-sub">geck-data.vercel.app</div></div>
+    <div class="setting-val" id="api-status">—</div>
+  </div>
+  <div class="setting-row">
+    <div><div class="setting-label">Zero extra requests</div><div class="setting-sub">Fetch interceptor active</div></div>
+    <div class="setting-val" style="color:#4ade80">✓</div>
+  </div>
+  <div class="setting-row">
+    <div><div class="setting-label">Age badges</div><div class="setting-sub">On search result cards</div></div>
+    <div class="setting-val" style="color:#4ade80">ON</div>
+  </div>
+  <div class="setting-row">
+    <div><div class="setting-label">Cross-platform</div><div class="setting-sub">Fauna, ReptileForums, Preloved, Kijiji</div></div>
+    <div class="setting-val" style="color:#4ade80">ON</div>
+  </div>
+  <div class="btn-row" style="margin-top:10px">
+    <button class="btn-dim" id="check-api-btn">Check API</button>
+    <button class="btn-dim" id="open-downloads-btn">Downloads</button>
+  </div>
+  <div class="btn-row">
+    <button class="btn-danger" id="clear-all-btn">Clear all local data</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="popup.js"></script>
+</body>
+</html>

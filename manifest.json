@@ -1,0 +1,59 @@
+{
+  "manifest_version": 3,
+  "name": "Geck Inspect",
+  "version": "4.10.0",
+  "description": "Complete MorphMarket intelligence — listings, sold data, price drops, lineage, seller momentum, cross-platform, competitor alerts. Zero extra network requests.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "downloads"
+  ],
+  "host_permissions": [
+    "https://www.morphmarket.com/*",
+    "https://www.faunaclassifieds.com/*",
+    "https://www.reptileforums.co.uk/*",
+    "https://www.preloved.co.uk/*",
+    "https://www.kijiji.ca/*",
+    "https://geck-data.vercel.app/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.morphmarket.com/*"],
+      "js": ["interceptor.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://www.morphmarket.com/*"],
+      "js": ["content_morphmarket.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.faunaclassifieds.com/*",
+        "https://www.reptileforums.co.uk/*",
+        "https://www.preloved.co.uk/*",
+        "https://www.kijiji.ca/*"
+      ],
+      "js": ["content_crossplatform.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}
