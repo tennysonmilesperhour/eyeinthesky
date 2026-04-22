@@ -7,6 +7,8 @@ function toast(msg, color='#22c55e') {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
+document.getElementById('version').textContent = 'v' + chrome.runtime.getManifest().version;
+
 // ── Tab switching ─────────────────────────────────────────────────────────────
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
