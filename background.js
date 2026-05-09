@@ -42,6 +42,34 @@ async function sendToAPI(type, key, data, captured_at) {
   return ok;
 }
 
+// Canonical-shape sender for events that don't need legacyAdapter translation.
+// Used for the listingImage path (CAPTURE_IMAGE) so the server's
+// handleListingImage runs directly instead of going through the legacy
+// gallery -> listingImage adapter.
+async function sendCanonicalEvent(type, payload, occurred_at) {
+  let ok = false;
+  let status = 0;
+  let errBody = '';
+  try {
+    const res = await fetch(CONFIG.INGEST_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': CONFIG.API_KEY },
+      body: JSON.stringify({
+        events: [{ type, payload, occurred_at, source: 'extension' }]
+      })
+    });
+    status = res.status;
+    ok = res.ok;
+    if (!ok) {
+      try { errBody = (await res.text()).slice(0, 200); } catch {}
+    }
+  } catch (e) {
+    errBody = (e && e.message) ? String(e.message).slice(0, 200) : 'network error';
+  }
+  recordSyncResult(ok, status, errBody).catch(() => {});
+  return ok;
+}
+
 // Keep a rolling record of POST outcomes so the popup can show "Sync: Live · 12s ago".
 // Successes are stored as a capped array of epoch-ms timestamps so we can count "/ 24h"
 // without unbounded growth. The most recent failure (if more recent than the most
@@ -265,7 +293,13 @@ async function handlePageData(dataType, url, data, captured_at) {
         }, captured_at);
       }
 
-      if (data.images?.length > 1) {
+      // Emit a gallery event for ANY image count. Single-image listings used
+      // to be skipped here, which meant they never produced a listingImage
+      // row server-side. The server's legacyAdapter for `animal` events now
+      // also fans out per-image listingImage events directly, so this is
+      // belt-and-suspenders; the unique constraint on (listing_id,image_url)
+      // collapses duplicates.
+      if (data.images?.length) {
         await sendToAPI('gallery', key, {
           key, images: data.images.map(i=>({url:i.image,caption:i.caption}))
         }, captured_at);
@@ -370,9 +404,32 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     (async () => {
       const s = await chrome.storage.local.get(KEYS.CAPTURES);
       const captures = s[KEYS.CAPTURES] || {};
-      if (captures[msg.key]) return sendResponse({ ok: true, duplicate: true });
-      captures[msg.key] = { ...msg.metadata, image_url: msg.imageUrl };
-      await chrome.storage.local.set({ [KEYS.CAPTURES]: captures });
+      const isDuplicate = !!captures[msg.key];
+      if (!isDuplicate) {
+        captures[msg.key] = { ...msg.metadata, image_url: msg.imageUrl };
+        await chrome.storage.local.set({ [KEYS.CAPTURES]: captures });
+      }
+
+      // Emit a canonical listingImage event so the server can fetch and
+      // store the bytes in Supabase. Previously this handler only kicked
+      // off a chrome.downloads.download to the user's local disk, which
+      // meant the image never reached geck-data and morph ID training had
+      // nothing to consume. Always emit (even on duplicate) so a fresh
+      // ingest after a server outage still gets a chance to store the row.
+      sendCanonicalEvent(
+        'listingImage',
+        {
+          listing_id: String(msg.key),
+          image_url: msg.imageUrl,
+          caption: msg.metadata?.caption,
+        },
+        new Date().toISOString(),
+      ).catch(() => {});
+
+      if (isDuplicate) {
+        return sendResponse({ ok: true, duplicate: true });
+      }
+
       try {
         await chrome.downloads.download({
           url: msg.imageUrl,
