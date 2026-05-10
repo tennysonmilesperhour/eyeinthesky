@@ -1,5 +1,3 @@
-// popup.js v4.1
-
 function toast(msg, color='#22c55e') {
   const t = document.getElementById('toast');
   t.textContent = msg; t.style.background = color;
